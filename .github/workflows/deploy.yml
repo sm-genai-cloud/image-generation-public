@@ -1,0 +1,218 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  APP_NAME: sm-image-gen
+  DOCKERHUB_USERNAME: mittalsameer
+  DOCKER_REPO: sm-cloud-ml
+  # AWS_REGION: us-east-1
+  # ACR_NAME: smgenaiacr
+
+jobs:
+  azure-deploy:
+    name: Deploy to Azure App Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # - name: Get ACR login server
+      #   id: acr
+      #   run: |
+      #     LOGIN_SERVER=$(az acr show \
+      #       --name $ACR_NAME \
+      #       --resource-group ${APP_NAME}-resource-grp \
+      #       --query loginServer -o tsv)
+      #     echo "ACR_LOGIN_SERVER=$LOGIN_SERVER" >> $GITHUB_ENV
+
+      # - name: Ensure ACR admin is enabled
+      #   run: |
+      #     az acr update --name $ACR_NAME \
+      #       --resource-group ${APP_NAME}-resource-grp \
+      #       --admin-enabled true
+
+      # - name: Log in to ACR
+      #   run: az acr login --name $ACR_NAME
+          
+
+      # - name: Build and push image to ACR
+      #   run: |
+      #     IMAGE_URI=$ACR_LOGIN_SERVER/$APP_NAME:$IMAGE_TAG
+      #     echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+      #     docker build -t $IMAGE_URI .
+      #     docker push $IMAGE_URI
+
+      # - name: Deploy to Azure Web App
+      #   run: |
+      #     ACR_USER=$(az acr credential show \
+      #       --name $ACR_NAME \
+      #       --resource-group ${APP_NAME}-resource-grp \
+      #       --query "username" -o tsv)
+
+      #     ACR_PASS=$(az acr credential show \
+      #       --name $ACR_NAME \
+      #       --resource-group ${APP_NAME}-resource-grp \
+      #       --query "passwords[0].value" -o tsv)
+
+      #     if [ -z "$ACR_USER" ] || [ -z "$ACR_PASS" ]; then
+      #       echo "❌ ACR credentials are missing or invalid"
+      #       exit 1
+      #     fi
+
+      #     az webapp config container set \
+      #       --name $APP_NAME \
+      #       --resource-group ${APP_NAME}-resource-grp \
+      #       --docker-custom-image-name $IMAGE_URI \
+      #       --docker-registry-server-url https://$ACR_LOGIN_SERVER \
+      #       --docker-registry-server-user $ACR_USER \
+      #       --docker-registry-server-password $ACR_PASS
+
+      - name: Docker Hub login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+     
+      - name: Build and push image
+        run: |
+          IMAGE_URI=${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKER_REPO }}:${{ env.APP_NAME }}
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+        
+      - name: Deploy to Azure Web App
+        run: |
+          IMAGE_URI=${{ env.DOCKERHUB_USERNAME }}/${{ env.DOCKER_REPO }}:${{ env.APP_NAME }}
+          az webapp config container set \
+            --name $APP_NAME \
+            --resource-group ${APP_NAME}-resource-grp \
+            --docker-custom-image-name $IMAGE_URI \
+            --docker-registry-server-url https://index.docker.io \
+            --docker-registry-server-user ${{ env.DOCKERHUB_USERNAME }} \
+            --docker-registry-server-password ${{ secrets.DOCKERHUB_TOKEN }}
+        
+          az webapp config appsettings set \
+            --name $APP_NAME \
+            --resource-group ${APP_NAME}-resource-grp \
+            --settings OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+                       GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+
+          az webapp restart \
+            --name $APP_NAME \
+            --resource-group ${APP_NAME}-resource-grp
+
+      - name: Echo both deployment URLs
+        run: |
+          echo ""
+          echo "✅ Deployment Complete"
+          echo "🌐 Azure App URL: https://${APP_NAME}.azurewebsites.net"
+
+  # aws-deploy:
+  #   name: Deploy to AWS ECS
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v2
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
+
+  #     - name: Log in to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v1
+
+  #     - name: Build and push image to ECR
+  #       run: |
+  #         REPO_NAME="${APP_NAME}-repo"
+  #         IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/$REPO_NAME:$IMAGE_TAG"
+  #         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+  #         docker build -t $IMAGE_URI .
+  #         docker push $IMAGE_URI
+
+  #     # - name: Pull OPENAI_API_KEY from SSM
+  #     #   run: |
+  #     #     OPENAI_API_KEY=$(aws ssm get-parameter \
+  #     #       --name "/global/OPENAI_API_KEY" \
+  #     #       --with-decryption \
+  #     #       --region $AWS_REGION \
+  #     #       --query "Parameter.Value" \
+  #     #       --output text)
+  #     #     echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> $GITHUB_ENV
+
+  #     - name: Register new ECS task definition revision
+  #       run: |
+  #         echo '{
+  #           "family": "'"$APP_NAME"'",
+  #           "networkMode": "awsvpc",
+  #           "requiresCompatibilities": ["FARGATE"],
+  #           "cpu": "256",
+  #           "memory": "512",
+  #           "executionRoleArn": "arn:aws:iam::'"${{ secrets.AWS_ACCOUNT_ID }}"':role/ecsTaskExecutionRole",
+  #           "containerDefinitions": [
+  #             {
+  #               "name": "'"$APP_NAME"'",
+  #               "image": "'"$IMAGE_URI"'",
+  #               "portMappings": [
+  #                 { "containerPort": 80, "protocol": "tcp" }
+  #               ],
+  #               "essential": true,
+  #               "environment": [
+  #                 {
+  #                   "name": "OPENAI_API_KEY",
+  #                   "value": "'"${{ secrets.OPENAI_API_KEY }}"'"
+  #                 }
+  #               ],
+  #               "logConfiguration": {
+  #                 "logDriver": "awslogs",
+  #                 "options": {
+  #                   "awslogs-group": "/ecs/'"$APP_NAME"'",
+  #                   "awslogs-region": "'"$AWS_REGION"'",
+  #                   "awslogs-stream-prefix": "ecs"
+  #                 }
+  #               }
+  #             }
+  #           ]
+  #         }' > task-def.json
+
+  #         TASK_REVISION=$(aws ecs register-task-definition \
+  #           --cli-input-json file://task-def.json \
+  #           --region $AWS_REGION \
+  #           --query "taskDefinition.taskDefinitionArn" \
+  #           --output text)
+
+  #         echo "TASK_REVISION=$TASK_REVISION" >> $GITHUB_ENV
+
+  #     - name: Update ECS service to use new revision
+  #       run: |
+  #         aws ecs update-service \
+  #           --cluster "${APP_NAME}-cluster" \
+  #           --service "${APP_NAME}-service" \
+  #           --task-definition "$TASK_REVISION" \
+  #           --desired-count 1 \
+  #           --force-new-deployment \
+  #           --region $AWS_REGION
+
+  #     - name: Echo AWS Load Balancer URL
+  #       run: |
+  #         ALB_NAME="${APP_NAME}-alb"
+  #         ALB_DNS=$(aws elbv2 describe-load-balancers \
+  #           --names "$ALB_NAME" \
+  #           --region $AWS_REGION \
+  #           --query "LoadBalancers[0].DNSName" \
+  #           --output text)
+
+  #         echo "🌍 AWS App URL: http://$ALB_DNS"

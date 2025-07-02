@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image/Icon Generation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+
+        .thumbnail {
+                width: auto;
+                max-width: 350px;
+                max-height: 280px;
+                object-fit: contain; /* <-- this is the fix */
+                margin: 12px;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: transform 0.2s ease;
+            }
+
+
+        #image-modal {
+    display: flex;
+}
+#image-modal.hidden {
+    display: none !important;
+}
+
+        .modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+        
+        .thumbnail:hover {
+            transform: scale(1.05);
+        }
+        
+        .image-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            margin-top: 40px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="text"], input[type="file"] {
+            width: calc(100% - 16px);
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .asset-row {
+            display: flex;
+            gap: 20px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        
+        .asset-row .image-container {
+            flex: 1;
+            min-width: 300px;
+}
+
+        button:disabled,
+        .btn-primary:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .image-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f1f1f1;
+            text-align: center;
+        }
+        .image-container label {
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .img-style-class {
+            max-width: 100%;
+            max-height: 1024px;
+            margin-bottom: 10px;
+        }
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 550px; /* Or adjust as needed */
+            z-index: 1000;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Generator</h1>
+        <p style="text-align:center; color: #555;">Transform prompts into professional-grade images and icons</p>
+        <form id="generation-form" action="/generate_asset" method="post" enctype="multipart/form-data">
+            <p id="generation-limit-info" style="text-align:center; color: #777;"></p>
+            <!-- Form groups for generation type, prompt, and image source options -->
+            <div class="form-group">
+                <label>What are you generating?</label><br><br>
+                <input type="radio" id="generate_image" name="generation_type" value="image" checked>
+                <label for="generate_image">Image</label>
+                <input type="radio" id="generate_icon" name="generation_type" value="icon" disabled>
+                <label for="generate_icon">Icon</label>
+            </div>
+            <div id="prompt_input" class="form-group">
+                <label for="prompt">Prompt:</label>
+                <input type="text" id="prompt" name="prompt" value="motorcycle" required>
+                <!-- <label for="user_instructions">Special Instructions:</label>
+                <input type="text" id="user_instructions" name="user_instructions" value="background should be a beach"> -->
+                <input type="checkbox" id="rewrite_prompt" name="rewrite_prompt">
+                <label for="rewrite_prompt">Enrich Prompt</label>
+            </div>
+            <div id="image_options" class="form-group">
+                <!-- Radio buttons for choosing image source: upload or URL -->
+                <input type="radio" id="prompt_only" name="image_source" value="prompt" checked>
+                <label for="prompt_only">Use Prompt Only</label>
+                <input type="radio" id="upload_option" name="image_source" value="upload">
+                <label for="upload_option">Upload Images</label>
+                <input type="radio" id="url_option" name="image_source" value="url">
+                <label for="url_option">Image URLs</label>
+                <br><br>
+                <!-- Div for uploading images -->
+                <div id="upload_input" class="hidden">
+                    <label for="image_files">Upload Images:</label>
+                    <input type="file" id="image_files" name="image_files[]" multiple accept=".png,.jpg,.jpeg,.webp,.gif">
+                </div>
+                <!-- Div for entering image URLs, initially hidden -->
+                <div id="url_inputs" class="hidden">
+                    <label for="image_urls">Image URLs:</label>
+                    <div id="url-inputs-container">
+                        <!-- Initial input field for entering image URL -->
+                        <input type="text" name="image_urls[]" id="image-url" placeholder="Enter image URL">
+                    </div>
+                    <!-- Button to add additional URL input fields -->
+                    <button type="button" id="add-url-btn" class="btn-primary" onclick="addUrlInput()">Add URL</button>
+                </div>
+            </div>
+            <!-- Button to submit form -->
+            <div class="form-group">
+                <button type="submit" class="btn-primary">Generate</button>
+            </div>
+        </form>
+
+        <div id="prompt_moderation"></div>
+        <div id="prompt_rewrite"></div>        
+        <div id="prompt_tags"></div>
+
+        <!-- Loading spinner overlay -->
+        <div id="loading-spinner" class="spinner-overlay">
+            <div class="spinner"></div>
+            <p>Generating...</p>
+        </div>
+
+        <div class="asset-row">
+            <!-- Container for displaying reference asset images -->
+            <div id="reference-images-container" class="image-container hidden">
+                <label for="reference-images">Reference Assets</label>
+                <div id="reference-images"></div>
+            </div>
+    
+             <!-- Container for displaying generated asset images -->
+            <div id="generated-image-container" class="image-container hidden">
+                <label for="generated-image">Generated Asset</label>
+                <p style="text-align:center; color: #555;">Click on the image for full size image</p>
+                <div id="generated-image-spinner" class="spinner hidden" style="margin: 20px auto;"></div>
+                <div id="generated-image"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript logic for handling form submission and image loading -->
+    <script>
+        const MAX_GENERATIONS = 50;
+
+        // Event listener for changing image source option to URL
+        document.getElementById('url_option').addEventListener('change', function() {
+            toggleRewritePrompt();
+            document.getElementById('url_inputs').classList.remove('hidden');
+            document.getElementById('upload_input').classList.add('hidden');
+            document.getElementById('image_files').value = ''; // Clear file input value
+
+            // Reset URL inputs to a single field
+            const container = document.getElementById('url-inputs-container');
+            container.innerHTML = '';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'image_urls[]';
+            input.placeholder = 'Enter image URL';
+            container.appendChild(input);
+        
+            // Re-enable "Add URL" button
+            document.getElementById('add-url-btn').disabled = false;
+        
+            toggleRewritePrompt(); // optional: keep UX consistent
+            
+        });
+
+        // Event listener for changing image source option to upload
+        document.getElementById('upload_option').addEventListener('change', function() {
+            toggleRewritePrompt();
+            document.getElementById('url_inputs').classList.add('hidden');
+            document.getElementById('upload_input').classList.remove('hidden');
+            document.getElementById('image-url').value = ''; // Clear URL input value
+        });
+
+         // Event listener for changing image source to prompt only
+        document.getElementById('prompt_only').addEventListener('change', function() {
+            toggleRewritePrompt();
+            document.getElementById('url_inputs').classList.add('hidden');
+            document.getElementById('upload_input').classList.add('hidden');
+            document.getElementById('image-url').value = ''; // Clear URL input value
+            document.getElementById('image_files').value = ''; // Clear file input value
+            document.getElementById('reference-images-container').classList.add('hidden'); // Hide reference section
+        });
+
+        // Event listener for limiting images uploaded to 3 and allowed file types
+        document.getElementById('image_files').addEventListener('change', function () {
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+            const files = Array.from(this.files);
+        
+            if (files.length > 3) {
+                alert('You can upload a maximum of 3 images.');
+                this.value = '';
+                return;
+            }
+        
+            for (const file of files) {
+                if (!allowedTypes.includes(file.type)) {
+                    alert(`File "${file.name}" is not a supported format. Please upload PNG, JPG, WEBP, or non-animated GIF.`);
+                    this.value = '';
+                    return;
+                }
+            }
+        });
+
+        // Function to add additional URL input fields
+        function addUrlInput() {
+            const container = document.getElementById('url-inputs-container');
+            const addBtn = document.getElementById('add-url-btn');
+            const currentInputs = container.querySelectorAll('input[name="image_urls[]"]');
+        
+            if (currentInputs.length >= 3) {
+                addBtn.disabled = true;
+                return;
+            }
+        
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'image_urls[]';
+            input.placeholder = 'Enter image URL';
+            container.appendChild(input);
+        
+            // Disable button if now at 3 inputs
+            if (container.querySelectorAll('input[name="image_urls[]"]').length >= 3) {
+                addBtn.disabled = true;
+            }
+        }
+
+        
+   
+        function toggleRewritePrompt() {
+            const enrichPrompt = document.getElementById('rewrite_prompt');
+            const imageSource = document.querySelector('input[name="image_source"]:checked').value;
+        
+            if (imageSource === 'upload' || imageSource === 'url') {
+                enrichPrompt.disabled = true;
+                enrichPrompt.checked = false; // Optional: uncheck if needed
+            } else {
+                enrichPrompt.disabled = false;
+            }
+            
+        }
+
+
+        // Function to load images from URLs and display them
+            async function loadImagesFromUrls(urls, containerId) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = ''; // Clear previous images
+            
+                for (const url of urls) {
+                    const trimmedUrl = url.trim();
+                    if (trimmedUrl) {
+                        const img = new Image();
+                        img.classList.add('thumbnail');
+                        img.onload = function () {
+                            container.appendChild(img); // Add image to container after it loads
+                        };
+                        img.onerror = function () {
+                            console.error('Failed to load image from URL:', trimmedUrl);
+                        };
+                        img.src = trimmedUrl; // Set the actual image URL directly
+                    }
+                }
+            }
+
+
+
+        // Form submission handler
+        document.getElementById('generation-form').onsubmit = async function(event) {
+            event.preventDefault(); // Prevent default form submission behavior
+
+            // Image generation limit logic (daily reset)
+                
+                const today = new Date().toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
+                
+                let generationData = JSON.parse(localStorage.getItem('generationData') || '{}');
+                
+                // Reset count if it's a new day
+                if (generationData.date !== today) {
+                    generationData = { date: today, count: 0 };
+                }
+                
+                if (generationData.count >= MAX_GENERATIONS) {
+                    alert(`You’ve reached your daily limit of ${MAX_GENERATIONS} image generations.`);
+                    return;
+                }
+
+
+            // Display loading spinner
+            document.getElementById('loading-spinner').style.display = 'flex';
+
+            // Clear previously generated assets before new submission
+            const generatedImagesDiv = document.getElementById('generated-image');
+            generatedImagesDiv.innerHTML = '';
+
+
+            // Access form data
+            const formData = new FormData(event.target);
+
+            // Reference image container and div
+            const referenceImageContainer = document.getElementById('reference-images-container');
+            const referenceImageDiv = document.getElementById('reference-images');
+
+            referenceImageDiv.classList.add('image-grid');
+
+
+            // Clear previous images in reference image div
+            referenceImageDiv.innerHTML = '';
+
+            // Determine image source (upload or URLs)
+            const imageSource = formData.get('image_source');
+
+            if (imageSource === 'upload') {
+                const imageFiles = formData.getAll('image_files[]');
+
+                // Display uploaded images
+                if (imageFiles.length > 0) {
+                    for (const file of imageFiles) {
+                        const img = new Image();
+                        img.onload = function() {
+                            referenceImageDiv.appendChild(img); // Append loaded image to div
+                        };
+                        img.src = URL.createObjectURL(file); // Set image source
+                        img.classList.add('thumbnail'); // Add CSS class
+                    }
+                    referenceImageContainer.classList.remove('hidden'); // Show reference image container
+                } else {
+                    referenceImageContainer.classList.add('hidden'); // Hide reference image container if no images
+                }
+            } else if (imageSource === 'url') {
+                const imageUrls = formData.getAll('image_urls[]');
+                // const allowedExtensions = /\.(png|jpe?g|webp|gif)$/i;
+                //     for (const url of imageUrls) {
+                //         if (url.trim() !== '' && !allowedExtensions.test(url.trim())) {
+                //             alert(`URL "${url}" is not a supported image format. Please use PNG, JPG, WEBP, or non-animated GIF.`);
+                //             document.getElementById('loading-spinner').style.display = 'none';
+                //             return;
+                //         }
+                //     }
+
+
+                // Display images loaded from URLs
+                if (imageUrls.length > 0) {
+                    await loadImagesFromUrls(imageUrls, 'reference-images');
+                    referenceImageContainer.classList.remove('hidden'); // Show reference image container
+                } else {
+                    referenceImageContainer.classList.add('hidden'); // Hide reference image container if no URLs
+                }
+            } else {
+                    // For "prompt_only", ensure the container is hidden
+                    referenceImageContainer.classList.add('hidden');
+                }
+
+            // Perform form submission to generate asset
+            try {
+                const response = await fetch('/generate_asset', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+
+                    // Increment generation count after success
+                    generationData.count += 1;
+                    localStorage.setItem('generationData', JSON.stringify(generationData));
+                    
+                    // Optional: update visible counter
+                    const remaining = MAX_GENERATIONS - generationData.count;
+                    document.getElementById('generation-limit-info').textContent =
+                        remaining <= 5 ? `You have ${remaining} image generations remaining today.` : '';
+
+                    
+                    const data = await response.json();
+                    const localAssets = data.local_assets;
+                    const prompt_outputs = data.prompt_outputs
+                    const generatedImagesDiv = document.getElementById('generated-image');
+                    const generatedImagesContainer = document.getElementById('generated-image-container');
+                    const generatedImageSpinner = document.getElementById('generated-image-spinner');
+                    generatedImageSpinner.classList.remove('hidden'); // show spinner
+
+
+                    if (prompt_outputs && Object.keys(prompt_outputs).length > 0) {
+                        const moderationDiv = document.getElementById('prompt_moderation');
+                        const rewriteDiv = document.getElementById('prompt_rewrite');
+                        const tagsDiv = document.getElementById('prompt_tags');
+                    
+                        // Clear existing content
+                        moderationDiv.innerHTML = '';
+                        rewriteDiv.innerHTML = '';
+                        tagsDiv.innerHTML = '';
+                    
+                        // Display prompt moderation info
+                        if (prompt_outputs.moderated_prompt || prompt_outputs.moderation_reason) {
+                            moderationDiv.innerHTML = `
+                                <p><strong>Your prompt was changed to:</strong> ${prompt_outputs.moderated_prompt || 'N/A'}</p>
+                                <p><strong>Reason:</strong> ${prompt_outputs.moderation_reason || 'N/A'}</p>
+                            `;
+                        }
+                    
+                        // Display enhanced prompt
+                        if (prompt_outputs.enhanced_prompt) {
+                            rewriteDiv.innerHTML = `
+                                <p><strong>Enriched Prompt:</strong> ${prompt_outputs.enhanced_prompt}</p>
+                            `;
+                        }
+                    }
+
+
+                    generatedImagesDiv.innerHTML = '';
+                    generatedImagesDiv.classList.add('image-grid');
+
+
+                 let loadedCount = 0;
+const totalImages = localAssets.length;
+
+localAssets.forEach((imgName, index) => {
+    const img = new Image();
+
+    img.onload = function() {
+        generatedImagesDiv.appendChild(img);
+        loadedCount++;
+        if (loadedCount === totalImages) {
+            generatedImageSpinner.classList.add('hidden'); // hide spinner
+        }
+    };
+
+    img.onerror = function() {
+        console.error('Failed to load the generated image:', imgName);
+        loadedCount++;
+        if (loadedCount === totalImages) {
+            generatedImageSpinner.classList.add('hidden'); // hide spinner on error too
+        }
+    };
+
+    img.src = imgName;
+    img.alt = `Generated Image ${index + 1}`;
+    img.classList.add('thumbnail');
+    img.addEventListener('click', function () {
+        const modal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-image');
+        modalImg.src = img.src;
+        modal.classList.remove('hidden');
+    });
+});
+
+
+                    generatedImagesContainer.classList.remove('hidden');
+                    
+                } else {
+                    alert('Generation failed. Please check your inputs.');
+                }
+            } catch (error) {
+                console.error('Error generating asset:', error);
+                alert('Generation failed. Please check your inputs.');
+            }
+
+            // Hide loading spinner after form submission
+            document.getElementById('loading-spinner').style.display = 'none';
+        };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const limitInfo = document.getElementById('generation-limit-info');
+            const savedData = JSON.parse(localStorage.getItem('generationData') || '{}');
+            const today = new Date().toISOString().split('T')[0];
+            const used = (savedData.date === today) ? savedData.count : 0;
+            const remaining = MAX_GENERATIONS - used;
+            if (remaining <= 5) {
+                    limitInfo.textContent = `You have ${remaining} image generations remaining today.`;
+                } else {
+                    limitInfo.textContent = ''; // hide the message
+                }
+
+
+            const modal = document.getElementById('image-modal');
+            const closeBtn = document.getElementById('close-modal-btn');
+            const modalImg = document.getElementById('modal-image');
+        
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        
+            closeBtn.addEventListener('click', function () {
+                modal.classList.add('hidden');
+            });
+        
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    modal.classList.add('hidden');
+                }
+            });
+        });
+
+
+        
+    </script>
+    <!-- Modal for enlarged image -->
+   <div id="image-modal" class="modal hidden">
+
+        <div style="position: relative; display: inline-block;">
+    <button id="close-modal-btn" style="
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(0, 0, 0, 0.5);
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 4px;
+    ">&times;</button>
+    <img id="modal-image" style="max-width: 90%; max-height: 90%; border-radius: 8px;" />
+</div>
+
+
+    </div>
+
+</body>
+</html>

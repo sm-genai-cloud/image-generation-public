@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Image Generation</title>
+      <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon2.ico') }}">
+      <link rel="stylesheet" href="static/styles.css">
+   </head>
+   <body>
+      <div class="app-container">
+         <!-- Header -->
+         <header class="app-header">
+            <h1 class="app-title">AI Image Generator <span class="beta-badge">Production</span></h1>
+            <p id="generation-limit-info" class="limit-info"></p>
+         </header>
+
+         <!-- About Toggle -->
+         <div class="about-toggle">
+            <button id="about-toggle-btn" class="about-btn">About</button>
+         </div>
+
+         <!-- About Section (Hidden by default) -->
+         <div id="about-content" class="about-section hidden">
+            <div class="about-card">
+               <h3>Principal ML Engineer Demo</h3>
+               <p>Enterprise-grade AI application demonstrating advanced machine learning system architecture, multi-modal AI integration, and production-ready inference infrastructure.</p>
+               
+               <div class="skills-showcase">
+                  <div class="skill-category">
+                     <h4>ML & AI</h4>
+                     <div class="tech-grid">
+                        <span class="tech-tag">LLMs/Diffusion Models</span>
+                        <span class="tech-tag">Multi-Modal AI</span>
+                        <span class="tech-tag">Prompt Engineering</span>
+                        <span class="tech-tag">AI Safety</span>
+                     </div>
+                  </div>
+
+                  <div class="skill-category">
+                     <h4>MLOps & Infrastructure</h4>
+                     <div class="tech-grid">
+                        <span class="tech-tag">Model Deployment</span>
+                        <span class="tech-tag">Auto-scaling</span>
+                        <span class="tech-tag">CI/CD</span>
+                        <span class="tech-tag">Multi-cloud</span>
+                     </div>
+                  </div>
+
+                  <div class="skill-category">
+                     <h4>Tech Stack</h4>
+                     <div class="tech-grid">
+                        <span class="tech-tag">Python/PyTorch</span>
+                        <span class="tech-tag">OpenAI/Vertex AI</span>
+                        <span class="tech-tag">Docker/K8s</span>
+                        <span class="tech-tag">AWS/Azure</span>
+                     </div>
+                  </div>
+               </div>
+
+               <div class="demo-highlights">
+                  <h4>Key Technical Achievements</h4>
+                  <ul>
+                     <li><strong>Multi-model orchestration</strong> with LLMs and diffusion models</li>
+                     <li><strong>Production ML infrastructure</strong> with auto-scaling and monitoring</li>
+                     <li><strong>Automated MLOps pipeline</strong> deploying to AWS and Azure</li>
+                  </ul>
+               </div>
+
+               <div class="contact-section">
+                  <p class="author">
+                     <strong>Sameer Mittal</strong> - Principal ML Engineer & Data Scientist<br>
+                     <a href="mailto:samr.mittal@gmail.com">Email</a> | 
+                     <a href="https://www.linkedin.com/in/sameermittal1" target="_blank">LinkedIn</a>
+                  </p>
+                  <p class="hire-note">
+                     <em>Seeking Principal ML Engineer roles to drive technical strategy and build scalable AI systems.</em>
+                  </p>
+               </div>
+            </div>
+         </div>
+
+         <!-- Main Layout -->
+         <div class="main-layout">
+            <!-- Form Column -->
+            <div class="form-column">
+               <form id="generation-form" action="/generate_asset" method="post" enctype="multipart/form-data">
+                  <input type="hidden" name="generation_type" value="image">
+                  
+                  <!-- Prompt Input -->
+                  <div class="form-section">
+                     <label for="prompt" class="input-label">What do you want to create? <span class="required">*</span></label>
+                     <input type="text" id="prompt" name="prompt" value="motorcycle" required 
+                            class="prompt-input" placeholder="A futuristic motorcycle in a cyberpunk city">
+                     
+                     <div class="prompt-options">
+                        <label class="checkbox-label">
+                           <input type="checkbox" id="rewrite_prompt" name="rewrite_prompt">
+                           <span class="checkmark"></span>
+                           Enhance with AI
+                        </label>
+                     </div>
+                  </div>
+
+                  <!-- Style Options -->
+                  <div class="form-section">
+                     <label class="input-label">Style Reference</label>
+                     <div class="style-tabs">
+                        <label class="tab-option active">
+                           <input type="radio" id="prompt_only" name="image_source" value="prompt" checked>
+                           <span>Text Only</span>
+                        </label>
+                        <label class="tab-option">
+                           <input type="radio" id="upload_option" name="image_source" value="upload">
+                           <span>Upload</span>
+                        </label>
+                        <label class="tab-option">
+                           <input type="radio" id="url_option" name="image_source" value="url">
+                           <span>URLs</span>
+                        </label>
+                        <label class="tab-option">
+                           <input type="radio" id="style_select_option" name="image_source" value="style_select">
+                           <span>Presets</span>
+                        </label>
+                     </div>
+
+                     <!-- Upload Panel -->
+                     <div id="upload_panel" class="option-panel hidden">
+                        <input type="file" id="image_files" name="image_files[]" multiple accept=".png,.jpg,.jpeg,.webp,.heic" class="file-input">
+                        <div class="panel-hint">Upload up to 3 images (10MB max each)</div>
+                     </div>
+
+                     <!-- URL Panel -->
+                     <div id="url_panel" class="option-panel hidden">
+                        <div id="url-inputs-container">
+                           <input type="text" name="image_urls[]" placeholder="https://example.com/image.jpg" class="url-input">
+                        </div>
+                        <button type="button" id="add-url-btn" class="add-btn">+ Add URL</button>
+                        <div class="panel-hint">Up to 3 image URLs</div>
+                     </div>
+
+                     <!-- Style Presets Panel -->
+                     <div id="preset_panel" class="option-panel hidden">
+                        <select id="style_dropdown" name="predefined_style" class="style-select">
+                           <option value="anime">Anime</option>
+                           <option value="concept_art">Concept Art</option>
+                           <option value="cyberpunk">Cyberpunk</option>
+                           <option value="fantasy">Fantasy</option>
+                           <option value="noir">Noir</option>
+                           <option value="pixel_art">Pixel Art</option>
+                           <option value="steampunk">Steampunk</option>
+                           <option value="studio_ghibli">Studio Ghibli</option>
+                           <option value="synthwave">Synthwave</option>
+                           <option value="watercolor">Watercolor</option>
+                        </select>
+                     </div>
+                  </div>
+
+                  <!-- Generate Button -->
+                  <button type="submit" class="generate-btn">
+                     <span class="btn-icon"></span>
+                     Generate Image
+                  </button>
+               </form>
+
+               <!-- Prompt Output Boxes -->
+               <div id="prompt_moderation" class="output-section"></div>
+               <div id="prompt_rewrite" class="output-section"></div>
+            </div>
+
+            <!-- Results Column -->
+            <div class="results-column">
+               <!-- Generated Images -->
+               <div id="generated-section" class="result-card hidden">
+                  <div class="result-header">
+                     <h3>Generated Images</h3>
+                     <p>Click to enlarge • Right-click to save</p>
+                  </div>
+                  <div id="generated-image-spinner" class="loading-spinner hidden">
+                     <div class="ai-icon"></div>
+                  </div>
+                  <div id="generated-image" class="image-grid"></div>
+               </div>
+
+               <!-- Reference Images -->
+               <div id="reference-section" class="result-card hidden">
+                  <div class="result-header">
+                     <h3>Reference Images</h3>
+                  </div>
+                  <div id="reference-images" class="image-grid"></div>
+               </div>
+
+               <!-- Placeholder -->
+               <div id="results-placeholder" class="placeholder-card">
+                  <div class="placeholder-content">
+                     <div class="placeholder-icon"></div>
+                     <h3>Your AI-generated images will appear here</h3>
+                     <p>Enter your description and generate professional-quality images using advanced AI models.</p>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div id="loading-overlay" class="loading-overlay hidden">
+         <div class="loading-content">
+            <div class="ai-icon"></div>
+            <p>Processing your request...</p>
+            <small id="time-estimate">Estimated time: 15-30 seconds</small>
+         </div>
+      </div>
+
+      <!-- Modal -->
+      <div id="image-modal" class="modal hidden">
+         <div class="modal-content">
+            <button id="close-modal-btn" class="modal-close">&times;</button>
+            <img id="modal-image" alt="Enlarged view">
+         </div>
+      </div>
+
+      <!-- Alert -->
+      <div id="custom-alert" class="alert hidden"></div>
+
+      <!-- Footer -->
+      <footer style="text-align: center; padding: 1rem; margin-top: 2rem; color: #64748b; font-size: 0.875rem; border-top: 1px solid #e2e8f0;">
+         Built by <a href="https://linkedin.com/in/sameermittal1" style="color: #6366f1; text-decoration: none;">Sameer Mittal</a> | 
+         <a href="mailto:samr.mittal@gmail.com" style="color: #6366f1; text-decoration: none;">Available for ML Engineer roles</a>
+      </footer>
+
+      <script src="https://unpkg.com/heic2any/dist/heic2any.min.js"></script>
+      <script>
+         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-mode');
+         }
+
+         const MAX_GENERATIONS = 50;
+
+         // Tab switching
+         document.querySelectorAll('.tab-option input').forEach(input => {
+            input.addEventListener('change', function() {
+               // Update active tab
+               document.querySelectorAll('.tab-option').forEach(tab => tab.classList.remove('active'));
+               this.closest('.tab-option').classList.add('active');
+
+               // Hide all panels
+               document.querySelectorAll('.option-panel').forEach(panel => panel.classList.add('hidden'));
+
+               // Show selected panel
+               const value = this.value;
+               if (value === 'upload') {
+                  document.getElementById('upload_panel').classList.remove('hidden');
+               } else if (value === 'url') {
+                  document.getElementById('url_panel').classList.remove('hidden');
+                  resetUrlInputs();
+               } else if (value === 'style_select') {
+                  document.getElementById('preset_panel').classList.remove('hidden');
+               }
+
+               toggleRewritePrompt();
+               hideReferenceSection();
+            });
+         });
+
+         function resetUrlInputs() {
+            const container = document.getElementById('url-inputs-container');
+            container.innerHTML = '<input type="text" name="image_urls[]" placeholder="https://example.com/image.jpg" class="url-input">';
+            document.getElementById('add-url-btn').disabled = false;
+         }
+
+         function hideReferenceSection() {
+            document.getElementById('reference-section').classList.add('hidden');
+         }
+
+         // Add URL input
+         function addUrlInput() {
+            const container = document.getElementById('url-inputs-container');
+            const currentInputs = container.querySelectorAll('input');
+            
+            if (currentInputs.length >= 3) {
+               document.getElementById('add-url-btn').disabled = true;
+               return;
+            }
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = 'image_urls[]';
+            input.placeholder = 'https://example.com/image.jpg';
+            input.className = 'url-input';
+            container.appendChild(input);
+
+            if (currentInputs.length >= 2) {
+               document.getElementById('add-url-btn').disabled = true;
+            }
+         }
+
+         document.getElementById('add-url-btn').addEventListener('click', addUrlInput);
+
+         // File validation
+         document.getElementById('image_files').addEventListener('change', function() {
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/heic'];
+            const files = Array.from(this.files);
+
+            if (files.length > 3) {
+               showAlert('You can upload a maximum of 3 images.');
+               this.value = '';
+               return;
+            }
+
+            for (const file of files) {
+               if (!allowedTypes.includes(file.type)) {
+                  showAlert(`File "${file.name}" is not supported. Use PNG, JPG, WEBP, or HEIC.`);
+                  this.value = '';
+                  return;
+               }
+            }
+         });
+
+         function toggleRewritePrompt() {
+            const checkbox = document.getElementById('rewrite_prompt');
+            const source = document.querySelector('input[name="image_source"]:checked').value;
+            
+            if (source === 'upload' || source === 'url') {
+               checkbox.disabled = true;
+               checkbox.checked = false;
+            } else {
+               checkbox.disabled = false;
+            }
+         }
+
+         // About toggle
+         document.getElementById('about-toggle-btn').addEventListener('click', function() {
+            const content = document.getElementById('about-content');
+            const isHidden = content.classList.contains('hidden');
+            
+            if (isHidden) {
+               content.classList.remove('hidden');
+               this.textContent = '✕ Close';
+            } else {
+               content.classList.add('hidden');
+               this.textContent = 'ℹ️ About';
+            }
+         });
+
+         // Form submission
+         document.getElementById('generation-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const selectedSource = document.querySelector('input[name="image_source"]:checked').value;
+
+            // Validation
+            if (selectedSource === 'upload') {
+               const files = document.getElementById('image_files').files;
+               if (files.length === 0) {
+                  showAlert('Please upload at least one image.');
+                  return;
+               }
+            } else if (selectedSource === 'url') {
+               const urlInputs = document.querySelectorAll('input[name="image_urls[]"]');
+               const hasValidUrl = Array.from(urlInputs).some(input => input.value.trim() !== '');
+               if (!hasValidUrl) {
+                  showAlert('Please enter at least one image URL.');
+                  return;
+               }
+            }
+
+            // Generation limit check
+            const today = new Date().toISOString().split('T')[0];
+            let generationData = JSON.parse(localStorage.getItem('generationData') || '{}');
+            
+            if (generationData.date !== today) {
+               generationData = { date: today, count: 0 };
+            }
+            
+            if (generationData.count >= MAX_GENERATIONS) {
+               showAlert(`You've reached your daily limit of ${MAX_GENERATIONS} image generations.`);
+               return;
+            }
+
+            // Show loading with time estimate
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('results-placeholder').classList.add('hidden');
+            
+            // Update time estimate based on generation type
+            const timeEstimate = document.getElementById('time-estimate');
+            const hasImages = selectedSource === 'upload' || selectedSource === 'url';
+            if (hasImages) {
+               timeEstimate.textContent = 'Estimated time: 30-45 seconds';
+            } else {
+               timeEstimate.textContent = 'Estimated time: 15-30 seconds';
+            }
+            
+            // Start countdown timer
+            startCountdown(hasImages ? 35 : 20);
+
+            // Prepare form data
+            const formData = new FormData(this);
+
+            if (selectedSource === 'upload') {
+               const files = Array.from(document.getElementById('image_files').files);
+               const convertedFiles = await Promise.all(files.map(convertHeicFile));
+               
+               // Clear original files and add converted ones
+               formData.delete('image_files[]');
+               convertedFiles.forEach(file => formData.append('image_files[]', file));
+            }
+
+            // Handle reference images display
+            const referenceSection = document.getElementById('reference-section');
+            const referenceContainer = document.getElementById('reference-images');
+            referenceContainer.innerHTML = '';
+
+            if (selectedSource === 'upload') {
+               const files = formData.getAll('image_files[]');
+               if (files.length > 0) {
+                  files.forEach(file => {
+                     if (file.type !== 'image/heic') {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.className = 'thumbnail';
+                        referenceContainer.appendChild(img);
+                     }
+                  });
+                  referenceSection.classList.remove('hidden');
+               }
+            } else if (selectedSource === 'url') {
+               const urls = formData.getAll('image_urls[]').filter(url => url.trim());
+               if (urls.length > 0) {
+                  urls.forEach(url => {
+                     const img = document.createElement('img');
+                     img.src = url;
+                     img.className = 'thumbnail';
+                     img.onload = () => referenceContainer.appendChild(img);
+                  });
+                  referenceSection.classList.remove('hidden');
+               }
+            } else {
+               referenceSection.classList.add('hidden');
+            }
+
+            try {
+               const response = await fetch('/generate_asset', {
+                  method: 'POST',
+                  body: formData
+               });
+
+               if (response.ok) {
+                  generationData.count += 1;
+                  localStorage.setItem('generationData', JSON.stringify(generationData));
+                  
+                  const remaining = MAX_GENERATIONS - generationData.count;
+                  const limitInfo = document.getElementById('generation-limit-info');
+                  limitInfo.textContent = remaining <= 5 ? `${remaining} generations remaining today` : '';
+
+                  const data = await response.json();
+                  displayResults(data);
+               } else {
+                  showError();
+               }
+            } catch (error) {
+               console.error('Generation error:', error);
+               showError();
+            } finally {
+               stopCountdown();
+               document.getElementById('loading-overlay').classList.add('hidden');
+            }
+         });
+
+         function displayResults(data) {
+            const { local_assets, prompt_outputs } = data;
+            
+            // Show prompt outputs
+            displayPromptOutputs(prompt_outputs);
+            
+            // Show generated images
+            const generatedSection = document.getElementById('generated-section');
+            const generatedContainer = document.getElementById('generated-image');
+            const spinner = document.getElementById('generated-image-spinner');
+            
+            generatedContainer.innerHTML = '';
+            spinner.classList.remove('hidden');
+            generatedSection.classList.remove('hidden');
+
+            if (local_assets.length === 0) {
+               generatedContainer.innerHTML = '<p class="no-results">No images generated. Please try again.</p>';
+               spinner.classList.add('hidden');
+               return;
+            }
+
+            let loadedCount = 0;
+            local_assets.forEach((imgSrc, index) => {
+               const img = document.createElement('img');
+               img.src = imgSrc;
+               img.alt = `Generated Image ${index + 1}`;
+               img.className = 'thumbnail';
+               img.addEventListener('click', () => openModal(imgSrc));
+               
+               img.onload = () => {
+                  generatedContainer.appendChild(img);
+                  loadedCount++;
+                  if (loadedCount === local_assets.length) {
+                     spinner.classList.add('hidden');
+                  }
+               };
+            });
+         }
+
+         function displayPromptOutputs(outputs) {
+            if (!outputs) return;
+
+            const moderationDiv = document.getElementById('prompt_moderation');
+            const rewriteDiv = document.getElementById('prompt_rewrite');
+            
+            moderationDiv.innerHTML = '';
+            rewriteDiv.innerHTML = '';
+
+            if (outputs.moderated_prompt || outputs.moderation_reason) {
+               moderationDiv.innerHTML = `
+                  <div class="output-box warning">
+                     <h4>⚠️ Prompt Adjusted</h4>
+                     <p><strong>Updated:</strong> ${outputs.moderated_prompt || 'N/A'}</p>
+                     <p><strong>Reason:</strong> ${outputs.moderation_reason || 'N/A'}</p>
+                  </div>
+               `;
+            }
+
+            if (outputs.enhanced_prompt) {
+               rewriteDiv.innerHTML = `
+                  <div class="output-box info">
+                     <h4>✨ Enhanced Prompt</h4>
+                     <p>${outputs.enhanced_prompt}</p>
+                  </div>
+               `;
+            }
+         }
+
+         function showError() {
+            const generatedSection = document.getElementById('generated-section');
+            const generatedContainer = document.getElementById('generated-image');
+            generatedContainer.innerHTML = '<p class="error-message">Something went wrong. Please try again.</p>';
+            document.getElementById('generated-image-spinner').classList.add('hidden');
+            generatedSection.classList.remove('hidden');
+         }
+
+         function openModal(src) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-image');
+            modalImg.src = src;
+            modal.classList.remove('hidden');
+         }
+
+         // Modal controls
+         document.getElementById('close-modal-btn').addEventListener('click', () => {
+            document.getElementById('image-modal').classList.add('hidden');
+         });
+
+         document.getElementById('image-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+               document.getElementById('image-modal').classList.add('hidden');
+            }
+         });
+
+         document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+               document.getElementById('image-modal').classList.add('hidden');
+            }
+         });
+
+         // Alert function
+         function showAlert(message, type = 'error') {
+            const alert = document.getElementById('custom-alert');
+            alert.textContent = message;
+            alert.className = `alert ${type}`;
+            alert.classList.remove('hidden');
+
+            setTimeout(() => {
+               alert.classList.add('hidden');
+            }, 3000);
+         }
+
+         // HEIC conversion
+         async function convertHeicFile(file) {
+            if (file.type !== 'image/heic') return file;
+
+            try {
+               const convertedBlob = await heic2any({
+                  blob: file,
+                  toType: 'image/jpeg'
+               });
+
+               return new File([convertedBlob], file.name.replace(/\.heic$/i, '.jpg'), {
+                  type: 'image/jpeg'
+               });
+            } catch (err) {
+               console.error('HEIC conversion failed:', err);
+               showAlert('Failed to convert HEIC file.');
+               throw err;
+            }
+         }
+
+         // Countdown timer function
+         let countdownInterval;
+         
+         function startCountdown(estimatedSeconds) {
+            clearInterval(countdownInterval);
+            let remainingTime = estimatedSeconds;
+            
+            countdownInterval = setInterval(() => {
+               if (remainingTime > 0) {
+                  const timeEstimate = document.getElementById('time-estimate');
+                  timeEstimate.textContent = `Estimated time remaining: ${remainingTime} seconds`;
+                  remainingTime--;
+               } else {
+                  const timeEstimate = document.getElementById('time-estimate');
+                  timeEstimate.textContent = 'Finalizing your images...';
+                  clearInterval(countdownInterval);
+               }
+            }, 1000);
+         }
+         
+         function stopCountdown() {
+            clearInterval(countdownInterval);
+         }
+
+         // Initialize generation limit display
+         document.addEventListener('DOMContentLoaded', () => {
+            const savedData = JSON.parse(localStorage.getItem('generationData') || '{}');
+            const today = new Date().toISOString().split('T')[0];
+            const used = (savedData.date === today) ? savedData.count : 0;
+            const remaining = MAX_GENERATIONS - used;
+            
+            const limitInfo = document.getElementById('generation-limit-info');
+            if (remaining <= 5) {
+               limitInfo.textContent = `${remaining} generations remaining today`;
+            }
+         });
+      </script>
+   </body>
+</html>

@@ -1,0 +1,11 @@
+openai==1.59.6
+gunicorn==23.0.0
+flask==3.0.3
+pandas==2.0.3
+numpy==1.24.4
+requests==2.32.3
+pillow==11.2.1
+google-genai==1.18.0
+setuptools>=65.5.1
+wheel
+python-dotenv==1.0.1  # Optional
